@@ -6,7 +6,7 @@ using UnityEngine.InputSystem;
 [RequireComponent(typeof(Rigidbody)), RequireComponent(typeof(LineRenderer))]
 public class PlayerMovement : MonoBehaviour
 {
-    public bool CurrentTurn;
+    public bool CurrentTurn = false;
 
     [SerializeField] private float movementSpeed = 5.0f;
     [SerializeField] private float maxDistanceToCentreTable = 150.0f;
@@ -34,7 +34,7 @@ public class PlayerMovement : MonoBehaviour
     private Vector3 aimPoint;
 
     [SerializeField] private float fireDelay = 1.0f;
-    private bool canFire = true;
+    private bool canFire = false;
     private float timer = 0.0f;
     private float yRotation = 0.0f;
 
@@ -58,6 +58,8 @@ public class PlayerMovement : MonoBehaviour
 
         rb = GetComponent<Rigidbody>();
         timer = timeUntilAimResets;
+
+        StartCoroutine(ResetCanFire());
     }
 
     private void Update()
@@ -120,11 +122,11 @@ public class PlayerMovement : MonoBehaviour
             if (hit.transform.TryGetComponent(out TennisBallController ballController))
             {
                 ballController.SetTarget(aimPoint, this);
+                GameManager.Instance.ChangeTurn();
             }
         }
 
         StartCoroutine(ResetCanFire());
-        GameManager.Instance.ChangeTurn();
     }
 
     private IEnumerator ResetCanFire()

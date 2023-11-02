@@ -12,14 +12,6 @@ public class GameManager : MonoBehaviour
 
     [SerializeField] private List<PlayerMovement> players = new();
 
-    public void AddGamePad()
-    {
-        foreach (Gamepad gamepad in Gamepad.all)
-        {
-            InputSystem.EnableDevice(gamepad);
-        }
-    }
-
     public void ChangeTurn()
     {
         if (players.Count < 2) { return; }
@@ -43,7 +35,6 @@ public class GameManager : MonoBehaviour
     private void Start()
     {
         IsTurn = 1;
-        AddGamePad();
     }
 
     private void Awake()
@@ -98,6 +89,16 @@ public class GameManager : MonoBehaviour
                 return;
             }
             players.Add(player);
+
+            if (player == players[IsTurn - 1])
+            {
+                player.CurrentTurn = true;
+            }
+            else
+            {
+                player.CurrentTurn = false;
+            }
+
             player.transform.position = spawnPoints[players.IndexOf(player)].position;
         }
     }

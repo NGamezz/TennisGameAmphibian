@@ -40,6 +40,15 @@
                     "processors": "",
                     "interactions": "",
                     "initialStateCheck": false
+                },
+                {
+                    "name": "PlaceObstacle",
+                    "type": "Button",
+                    "id": "5f0a71ad-053a-4467-9489-09ee216929d8",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
                 }
             ],
             "bindings": [
@@ -276,17 +285,6 @@
                 },
                 {
                     "name": "",
-                    "id": "c4a85496-30a8-4ef6-ba05-9bb1ea0eeca9",
-                    "path": "<Gamepad>/buttonWest",
-                    "interactions": "",
-                    "processors": "",
-                    "groups": "",
-                    "action": "WhackTableTennisBall",
-                    "isComposite": false,
-                    "isPartOfComposite": false
-                },
-                {
-                    "name": "",
                     "id": "0e3a745b-f5e6-443a-b070-829f38001d93",
                     "path": "<Gamepad>/buttonNorth",
                     "interactions": "",
@@ -315,6 +313,28 @@
                     "processors": "",
                     "groups": "",
                     "action": "WhackTableTennisBall",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "60e61786-26df-4139-a861-745484830d40",
+                    "path": "<Keyboard>/e",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "PlaceObstacle",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "66f3dd5e-8961-4e7a-a807-d7deed5beeb1",
+                    "path": "<Gamepad>/buttonWest",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "PlaceObstacle",
                     "isComposite": false,
                     "isPartOfComposite": false
                 }

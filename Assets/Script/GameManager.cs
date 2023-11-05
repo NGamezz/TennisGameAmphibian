@@ -1,5 +1,6 @@
 using System.Collections.Generic;
-using UnityEngine.InputSystem;
+using Unity.VisualScripting;
+using UnityEditor;
 using UnityEngine;
 
 public class GameManager : MonoBehaviour
@@ -12,29 +13,15 @@ public class GameManager : MonoBehaviour
 
     [SerializeField] private List<PlayerMovement> players = new();
 
-    public void ChangeTurn()
-    {
-        if (players.Count < 2) { return; }
+    [Tooltip("Requires a rigidbody, I'd recommend adding some drag on the rigibody as well, otherwise it becomes very slippery.")]
+    public List<GameObject> possibleObstacles = new();
 
-        players[IsTurn - 1].CurrentTurn = false;
-
-        IsTurn++;
-        ResetIsTurn();
-
-        players[IsTurn - 1].CurrentTurn = true;
-    }
-
-    private void ResetIsTurn()
-    {
-        if (IsTurn > players.Count)
-        {
-            IsTurn = 1;
-        }
-    }
+    private float width, height;
 
     private void Start()
     {
-        IsTurn = 1;
+        width = Screen.currentResolution.width;
+        height = Screen.currentResolution.height;
     }
 
     private void Awake()
@@ -50,24 +37,9 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    private void OnStart()
-    {
-        foreach (PlayerMovement player in players)
-        {
-            if (player == players[0])
-            {
-                player.CurrentTurn = true;
-            }
-            else
-            {
-                player.CurrentTurn &= false;
-            }
-        }
-        players[IsTurn - 1].CurrentTurn = true;
-    }
-
     private void OnDisable()
     {
+        EventManager.ClearEvents(true);
         Instance = null;
     }
 
@@ -76,30 +48,20 @@ public class GameManager : MonoBehaviour
         PlayerMovement[] _players = FindObjectsOfType<PlayerMovement>();
         foreach (PlayerMovement player in _players)
         {
-            if (players.Contains(player))
+            if (!players.Contains(player))
             {
-                if (player == players[IsTurn - 1])
-                {
-                    player.CurrentTurn = true;
-                }
-                else
-                {
-                    player.CurrentTurn = false;
-                }
-                return;
-            }
-            players.Add(player);
-
-            if (player == players[IsTurn - 1])
-            {
-                player.CurrentTurn = true;
-            }
-            else
-            {
-                player.CurrentTurn = false;
+                players.Add(player);
             }
 
             player.transform.position = spawnPoints[players.IndexOf(player)].position;
+        }
+
+        if (players.Count >= 2)
+        {
+            foreach (PlayerMovement player in players)
+            {
+                player.GameStarted = true;
+            }
         }
     }
 }

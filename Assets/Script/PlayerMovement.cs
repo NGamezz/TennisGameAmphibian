@@ -1,13 +1,13 @@
 using System.Collections;
+using TMPro;
 using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.UI;
 
 [RequireComponent(typeof(Rigidbody)), RequireComponent(typeof(LineRenderer))]
 public class PlayerMovement : MonoBehaviour
 {
-    public bool CurrentTurn = false;
-
     [SerializeField] private float movementSpeed = 5.0f;
     [SerializeField] private float maxDistanceToCentreTable = 150.0f;
     [SerializeField] private Transform orientation;
@@ -16,10 +16,25 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField] private float lineLenght = 15.0f;
     [SerializeField] private float whackRadius = 15.0f;
     [SerializeField] private float timeUntilAimResets = 5.0f;
+    [SerializeField] private float moveSpeedOfObstacle = 2.0f;
+    [SerializeField] private TMP_Text scoreText;
+    [SerializeField] private Slider obstacleCooldownBar;
 
     private LineRenderer lineRenderer;
 
-    public float Score = 0.0f;
+    private float score = 0.0f;
+    public float Score
+    {
+        get
+        {
+            return score;
+        }
+        set
+        {
+            score = value;
+            scoreText.text = $"Your Current Score = {value}.";
+        }
+    }
 
     private Vector2 movementInput = Vector2.zero;
 
@@ -29,24 +44,40 @@ public class PlayerMovement : MonoBehaviour
 
     private Rigidbody rb;
 
+    private GameObject currentObstacle;
+
     private Transform tableCenter;
     private Vector3 directionToTable;
     private Vector3 aimPoint;
+
+    [SerializeField] private float delayUntilObstaclePlacement = 15.0f;
+    private float counterUntilObstaclePlacement = 0.0f;
+    private bool canHoldObstacle = false;
+    private Rigidbody currentObstacleRb = null;
+
+    public bool GameStarted = false;
 
     [SerializeField] private float fireDelay = 1.0f;
     private bool canFire = false;
     private float timer = 0.0f;
     private float yRotation = 0.0f;
 
+    private bool canPlace = true;
+
     private void Start()
     {
-        tableCenter = FindObjectOfType<TableCenter>().transform;
+        tableCenter = FindObjectOfType<TableCenterIdentifier>().transform;
 
         Vector3 tablePosition = tableCenter.position;
         tablePosition.y = 0.0f;
 
         lineRenderer = GetComponent<LineRenderer>();
         lineRenderer.positionCount = 2;
+
+        counterUntilObstaclePlacement = 0.0f;
+        obstacleCooldownBar.maxValue = delayUntilObstaclePlacement;
+        obstacleCooldownBar.minValue = 0.0f;
+        obstacleCooldownBar.value = obstacleCooldownBar.minValue;
 
         directionToTable = tableCenter.position - transform.position;
         directionToTable.y = 0.0f;
@@ -64,8 +95,50 @@ public class PlayerMovement : MonoBehaviour
 
     private void Update()
     {
-        if (GameManager.Instance == null) { return; }
+        if (GameManager.Instance == null || !GameStarted) { return; }
 
+        PickupHandling();
+        AimUpdate();
+    }
+
+    //It's for the delay between presses.
+    private IEnumerator ResetDelayForPlacement()
+    {
+        yield return new WaitForSeconds(1.0f);
+
+        canPlace = true;
+    }
+
+    public void HoldObstacle()
+    {
+        if (GameManager.Instance == null || !GameStarted) { return; }
+
+        if (HoldingObstacle() && canPlace)
+        {
+            PlacePickup();
+        }
+        else if (!HoldingObstacle() && canHoldObstacle && canPlace)
+        {
+            currentObstacle = Instantiate(GameManager.Instance.possibleObstacles[Random.Range(0, GameManager.Instance.possibleObstacles.Count)], GameManager.Instance.transform);
+            canHoldObstacle = false;
+
+            if (!currentObstacle.TryGetComponent(out Rigidbody rb))
+            {
+                currentObstacle = null;
+                return;
+            }
+
+            currentObstacleRb = rb;
+            rb.useGravity = false;
+            rb.GetComponent<Collider>().enabled = false;
+        }
+
+        canPlace = false;
+        StartCoroutine(ResetDelayForPlacement());
+    }
+
+    private void AimUpdate()
+    {
         orientationHolder.LookAt(tableCenter);
 
         if (isAiming)
@@ -112,17 +185,16 @@ public class PlayerMovement : MonoBehaviour
 
     public void WhackTennisBall()
     {
-        if (!CurrentTurn || !canFire) { return; }
+        if (!canFire || !GameStarted) { return; }
 
         canFire = false;
         Collider[] hits = Physics.OverlapSphere(transform.position, whackRadius);
 
         foreach (Collider hit in hits)
         {
-            if (hit.transform.TryGetComponent(out TennisBallController ballController))
+            if (hit.transform.TryGetComponent(out TennisBallLogic ballController))
             {
                 ballController.SetTarget(aimPoint, this);
-                GameManager.Instance.ChangeTurn();
             }
         }
 
@@ -138,7 +210,7 @@ public class PlayerMovement : MonoBehaviour
 
     private void FixedUpdate()
     {
-        if (Vector3.Distance(transform.position, tableCenter.position) > maxDistanceToCentreTable) { return; }
+        if (Vector3.Distance(transform.position, tableCenter.position) > maxDistanceToCentreTable || HoldingObstacle() || !GameStarted) { return; }
 
         rb.AddRelativeForce(movementSpeed * new Vector3(movementInput.x, 0.0f, movementInput.y), ForceMode.Force);
     }
@@ -157,5 +229,43 @@ public class PlayerMovement : MonoBehaviour
         {
             isAiming = false;
         }
+    }
+
+    private bool HoldingObstacle()
+    {
+        return currentObstacle != null;
+    }
+
+    private void PickupHandling()
+    {
+        if (!HoldingObstacle() && !canHoldObstacle)
+        {
+            if (counterUntilObstaclePlacement >= delayUntilObstaclePlacement)
+            {
+                canHoldObstacle = true;
+                counterUntilObstaclePlacement = 0.0f;
+                obstacleCooldownBar.value = obstacleCooldownBar.maxValue;
+            }
+            else
+            {
+                counterUntilObstaclePlacement += Time.deltaTime;
+                obstacleCooldownBar.value = counterUntilObstaclePlacement;
+            }
+        }
+
+        if (!HoldingObstacle()) { return; }
+
+        currentObstacleRb.AddRelativeForce(moveSpeedOfObstacle * new Vector3(movementInput.x, 0.0f, movementInput.y), ForceMode.Force);
+    }
+
+    public void PlacePickup()
+    {
+        if (!HoldingObstacle()) { return; }
+
+        currentObstacleRb.useGravity = true;
+        currentObstacleRb.constraints = RigidbodyConstraints.FreezePositionX | RigidbodyConstraints.FreezePositionZ | RigidbodyConstraints.FreezeRotation;
+        currentObstacle.GetComponent<Collider>().enabled = true;
+
+        currentObstacle = null;
     }
 }

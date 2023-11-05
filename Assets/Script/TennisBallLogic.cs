@@ -1,12 +1,12 @@
-using System.Collections;
 using UnityEngine;
 
-public class TennisBallController : MonoBehaviour
+public class TennisBallLogic : MonoBehaviour
 {
     [SerializeField] private float minDistanceToTarget = 5.0f;
     [SerializeField] private float moveSpeed = 5.0f;
-    [SerializeField] private float distanceFromTableForPoint = 8.0f;
-    [SerializeField] private float delayBetweenScores = 2.0f;
+    [SerializeField] private float distanceFromTableCenterForPoint = 8.0f;
+
+    [SerializeField] private float widthOfTheTable = 12.0f;
 
     private Transform tableCenter;
     private bool canScore = true;
@@ -22,29 +22,31 @@ public class TennisBallController : MonoBehaviour
 
     private void Start()
     {
-        tableCenter = FindObjectOfType<TableCenter>().transform;
+        tableCenter = FindObjectOfType<TableCenterIdentifier>().transform;
         target = transform.position;
     }
 
-    private IEnumerator StartBallThrow()
+    private void StartBallThrow()
     {
-        if (player == null) { StopAllCoroutines(); }
+        if (player == null) { return; }
 
         player.Score += 1;
         target = transform.position;
 
         canScore = false;
-
-        yield return new WaitForSeconds(delayBetweenScores);
-
-        canScore = true;
+        player = null;
     }
 
     private void Update()
     {
-        if (Vector3.Distance(transform.position, tableCenter.position) > distanceFromTableForPoint && canScore)
+        if (Vector3.Distance(transform.position, tableCenter.position) > distanceFromTableCenterForPoint && canScore)
         {
-            StartCoroutine(StartBallThrow());
+            StartBallThrow();
+        }
+
+        if (!canScore && Vector3.Distance(transform.position, tableCenter.position) <= widthOfTheTable / 2.0f)
+        {
+            canScore = true;
         }
 
         if (Vector3.Distance(transform.position, target) <= minDistanceToTarget || target == null) { return; }

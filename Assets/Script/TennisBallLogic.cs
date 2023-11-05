@@ -8,6 +8,7 @@ public class TennisBallLogic : MonoBehaviour
 
     [SerializeField] private float widthOfTheTable = 12.0f;
 
+    private Rigidbody rb;
     private Transform tableCenter;
     private bool canScore = true;
     private Vector3 target;
@@ -16,7 +17,8 @@ public class TennisBallLogic : MonoBehaviour
 
     public void SetTarget(Vector3 futurePosition, PlayerMovement player)
     {
-        target = futurePosition;
+        target = futurePosition - transform.position;
+        target.y = 0.0f;
         this.player = player;
     }
 
@@ -24,6 +26,7 @@ public class TennisBallLogic : MonoBehaviour
     {
         tableCenter = FindObjectOfType<TableCenterIdentifier>().transform;
         target = transform.position;
+        rb = GetComponent<Rigidbody>();
     }
 
     private void StartBallThrow()
@@ -39,9 +42,17 @@ public class TennisBallLogic : MonoBehaviour
 
     private void Update()
     {
+        if (Vector3.Distance(transform.position, tableCenter.position) >= 15.0f)
+        {
+            Vector3 direction = tableCenter.position - transform.position;
+            direction.y = 0.0f;
+            transform.Translate(direction.normalized * 0.01f);
+        }
+
         if (Vector3.Distance(transform.position, tableCenter.position) > distanceFromTableCenterForPoint && canScore)
         {
             StartBallThrow();
+            rb.velocity = Vector3.zero;
         }
 
         if (!canScore && Vector3.Distance(transform.position, tableCenter.position) <= widthOfTheTable / 2.0f)
@@ -51,9 +62,18 @@ public class TennisBallLogic : MonoBehaviour
 
         if (Vector3.Distance(transform.position, target) <= minDistanceToTarget || target == null) { return; }
 
-        Vector3 direction = target - transform.position;
-        direction.y = 0.0f;
+        rb.AddRelativeForce(moveSpeed * target.normalized, ForceMode.Force);
+        VelocityLimiting();
+    }
 
-        transform.Translate(10.0f * moveSpeed * Time.deltaTime * direction.normalized);
+    private void VelocityLimiting()
+    {
+        Vector3 flatVelocity = new(rb.velocity.x, 0.0f, rb.velocity.z);
+
+        if (flatVelocity.magnitude > moveSpeed)
+        {
+            Vector3 newVelocity = flatVelocity.normalized * moveSpeed;
+            rb.velocity = newVelocity;
+        }
     }
 }

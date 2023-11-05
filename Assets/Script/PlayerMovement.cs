@@ -9,7 +9,6 @@ using UnityEngine.UI;
 public class PlayerMovement : MonoBehaviour
 {
     [SerializeField] private float movementSpeed = 5.0f;
-    [SerializeField] private float maxDistanceToCentreTable = 150.0f;
     [SerializeField] private Transform orientation;
     [SerializeField] private Transform orientationHolder;
     [SerializeField] private float aimSensitivity = 50.0f;
@@ -45,6 +44,7 @@ public class PlayerMovement : MonoBehaviour
     private Rigidbody rb;
 
     private GameObject currentObstacle;
+    private IObstacle currentIObstacle;
 
     private Transform tableCenter;
     private Vector3 directionToTable;
@@ -54,8 +54,6 @@ public class PlayerMovement : MonoBehaviour
     private float counterUntilObstaclePlacement = 0.0f;
     private bool canHoldObstacle = false;
     private Rigidbody currentObstacleRb = null;
-
-    public bool GameStarted = false;
 
     [SerializeField] private float fireDelay = 1.0f;
     private bool canFire = false;
@@ -95,7 +93,7 @@ public class PlayerMovement : MonoBehaviour
 
     private void Update()
     {
-        if (GameManager.Instance == null || !GameStarted) { return; }
+        if (GameManager.Instance == null) { return; }
 
         PickupHandling();
         AimUpdate();
@@ -111,7 +109,7 @@ public class PlayerMovement : MonoBehaviour
 
     public void HoldObstacle()
     {
-        if (GameManager.Instance == null || !GameStarted) { return; }
+        if (GameManager.Instance == null) { return; }
 
         if (HoldingObstacle() && canPlace)
         {
@@ -120,14 +118,16 @@ public class PlayerMovement : MonoBehaviour
         else if (!HoldingObstacle() && canHoldObstacle && canPlace)
         {
             currentObstacle = Instantiate(GameManager.Instance.possibleObstacles[Random.Range(0, GameManager.Instance.possibleObstacles.Count)], GameManager.Instance.transform);
-            canHoldObstacle = false;
-
             if (!currentObstacle.TryGetComponent(out Rigidbody rb))
             {
                 currentObstacle = null;
                 return;
             }
 
+            currentObstacle.TryGetComponent(out currentIObstacle);
+            currentIObstacle.BeingHeld();
+            canHoldObstacle = false;
+            yRotationObstacle = 0.0f;
             currentObstacleRb = rb;
             rb.useGravity = false;
             rb.GetComponent<Collider>().enabled = false;
@@ -140,6 +140,8 @@ public class PlayerMovement : MonoBehaviour
     private void AimUpdate()
     {
         orientationHolder.LookAt(tableCenter);
+
+        if (HoldingObstacle()) { return; }
 
         if (isAiming)
         {
@@ -172,20 +174,13 @@ public class PlayerMovement : MonoBehaviour
             }
         }
 
-        if (Vector3.Distance(transform.position, tableCenter.position) > maxDistanceToCentreTable)
-        {
-            Vector3 direction = tableCenter.position - transform.position;
-            direction.y = 0.0f;
-            transform.Translate(direction.normalized * 0.01f);
-        }
-
         lineRenderer.SetPosition(0, orientation.position);
         lineRenderer.SetPosition(1, aimPoint);
     }
 
     public void WhackTennisBall()
     {
-        if (!canFire || !GameStarted) { return; }
+        if (!canFire) { return; }
 
         canFire = false;
         Collider[] hits = Physics.OverlapSphere(transform.position, whackRadius);
@@ -210,9 +205,9 @@ public class PlayerMovement : MonoBehaviour
 
     private void FixedUpdate()
     {
-        if (Vector3.Distance(transform.position, tableCenter.position) > maxDistanceToCentreTable || HoldingObstacle() || !GameStarted) { return; }
+        if (HoldingObstacle()) { return; }
 
-        rb.AddRelativeForce(movementSpeed * new Vector3(movementInput.x, 0.0f, movementInput.y), ForceMode.Force);
+        rb.AddForce(movementSpeed * new Vector3(movementInput.x, 0.0f, movementInput.y), ForceMode.Force);
     }
 
     public void OnMove(InputAction.CallbackContext contex) => movementInput = contex.ReadValue<Vector2>();
@@ -236,6 +231,7 @@ public class PlayerMovement : MonoBehaviour
         return currentObstacle != null;
     }
 
+    private float yRotationObstacle = 0.0f;
     private void PickupHandling()
     {
         if (!HoldingObstacle() && !canHoldObstacle)
@@ -255,17 +251,23 @@ public class PlayerMovement : MonoBehaviour
 
         if (!HoldingObstacle()) { return; }
 
-        currentObstacleRb.AddRelativeForce(moveSpeedOfObstacle * new Vector3(movementInput.x, 0.0f, movementInput.y), ForceMode.Force);
+        yRotationObstacle += aimInput.x * aimSensitivity * Time.deltaTime;
+        currentObstacle.transform.localRotation = Quaternion.Euler(0.0f, yRotationObstacle, 0.0f);
+
+        currentObstacleRb.AddForce(moveSpeedOfObstacle * new Vector3(movementInput.x, 0.0f, movementInput.y), ForceMode.Force);
     }
 
     public void PlacePickup()
     {
         if (!HoldingObstacle()) { return; }
 
+        currentIObstacle.Place();
+        currentIObstacle = null;
         currentObstacleRb.useGravity = true;
         currentObstacleRb.constraints = RigidbodyConstraints.FreezePositionX | RigidbodyConstraints.FreezePositionZ | RigidbodyConstraints.FreezeRotation;
         currentObstacle.GetComponent<Collider>().enabled = true;
 
+        currentObstacleRb = null;
         currentObstacle = null;
     }
 }

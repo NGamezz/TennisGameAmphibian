@@ -1,6 +1,5 @@
 using System.Collections;
 using TMPro;
-using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
@@ -97,6 +96,7 @@ public class PlayerMovement : MonoBehaviour
 
         PickupHandling();
         AimUpdate();
+        VelocityLimiting();
     }
 
     //It's for the delay between presses.
@@ -117,33 +117,79 @@ public class PlayerMovement : MonoBehaviour
         }
         else if (!HoldingObstacle() && canHoldObstacle && canPlace)
         {
-            currentObstacle = Instantiate(GameManager.Instance.possibleObstacles[Random.Range(0, GameManager.Instance.possibleObstacles.Count)], GameManager.Instance.transform);
+            currentObstacle = Instantiate(GameManager.Instance.possibleObstacles[Random.Range(0, GameManager.Instance.possibleObstacles.Count)], position: new Vector3(transform.position.x, transform.position.y + 2.0f, transform.position.z), Quaternion.identity);
             if (!currentObstacle.TryGetComponent(out Rigidbody rb))
             {
                 currentObstacle = null;
                 return;
             }
 
-            currentObstacle.TryGetComponent(out currentIObstacle);
-            currentIObstacle.BeingHeld();
+            if (currentObstacle.TryGetComponent(out currentIObstacle))
+            {
+                currentIObstacle.BeingHeld();
+            }
+
             canHoldObstacle = false;
             yRotationObstacle = 0.0f;
             currentObstacleRb = rb;
             rb.useGravity = false;
-            rb.GetComponent<Collider>().enabled = false;
+            //rb.GetComponent<Collider>().enabled = false;
         }
 
         canPlace = false;
         StartCoroutine(ResetDelayForPlacement());
     }
 
+    private void VelocityLimiting()
+    {
+        Vector3 flatVelocity = new(rb.velocity.x, 0.0f, rb.velocity.z);
+
+        if (flatVelocity.magnitude > movementSpeed)
+        {
+            Vector3 newVelocity = flatVelocity.normalized * movementSpeed;
+            rb.velocity = newVelocity;
+        }
+
+        if (currentObstacleRb == null) { return; }
+
+        Vector3 flatVelocityObstacle = new(currentObstacleRb.velocity.x, 0.0f, currentObstacleRb.velocity.z);
+
+        if (flatVelocityObstacle.magnitude > moveSpeedOfObstacle)
+        {
+            Vector3 newObjectVelocity = flatVelocityObstacle.normalized * moveSpeedOfObstacle;
+            currentObstacleRb.velocity = newObjectVelocity;
+        }
+    }
+
+    private bool switchToDefaultAim = false;
+    private void ResetAim()
+    {
+        if (timer <= 0)
+        {
+            switchToDefaultAim = true;
+            yRotation = 0.0f;
+            timer = timeUntilAimResets;
+        }
+        else
+        {
+            timer -= Time.deltaTime;
+        }
+    }
+
     private void AimUpdate()
     {
         orientationHolder.LookAt(tableCenter);
 
-        if (HoldingObstacle()) { return; }
+        if (switchToDefaultAim)
+        {
+            directionToTable = tableCenter.position - transform.position;
+            directionToTable.y = 0.0f;
+            aimPoint = directionToTable.normalized * lineLenght;
 
-        if (isAiming)
+            orientation.LookAt(directionToTable.normalized * lineLenght);
+        }
+
+        if (isAiming && !HoldingObstacle())
         {
             yRotation += aimInput.x * aimSensitivity * Time.deltaTime;
             yRotation = Mathf.Clamp(yRotation, -45, 45);
@@ -157,21 +203,12 @@ public class PlayerMovement : MonoBehaviour
         }
         else
         {
-            if (timer <= 0)
-            {
-                yRotation = 0.0f;
-                timer = timeUntilAimResets;
+            ResetAim();
+        }
 
-                directionToTable = tableCenter.position - transform.position;
-                directionToTable.y = 0.0f;
-                aimPoint = directionToTable.normalized * lineLenght;
-
-                orientation.LookAt(directionToTable.normalized * lineLenght);
-            }
-            else
-            {
-                timer -= Time.deltaTime;
-            }
+        if (HoldingObstacle())
+        {
+            ResetAim();
         }
 
         lineRenderer.SetPosition(0, orientation.position);
@@ -180,7 +217,7 @@ public class PlayerMovement : MonoBehaviour
 
     public void WhackTennisBall()
     {
-        if (!canFire) { return; }
+        if (!canFire || HoldingObstacle()) { return; }
 
         canFire = false;
         Collider[] hits = Physics.OverlapSphere(transform.position, whackRadius);
@@ -194,6 +231,12 @@ public class PlayerMovement : MonoBehaviour
         }
 
         StartCoroutine(ResetCanFire());
+    }
+
+    public void ResetBall()
+    {
+        TennisBallLogic tennisBall = FindObjectOfType<TennisBallLogic>();
+        tennisBall.ResetBall();
     }
 
     private IEnumerator ResetCanFire()
@@ -215,6 +258,8 @@ public class PlayerMovement : MonoBehaviour
     public void OnLook(InputAction.CallbackContext context)
     {
         aimInput = context.ReadValue<Vector2>();
+
+        switchToDefaultAim = false;
 
         if (aimInput.x != 0)
         {
@@ -254,6 +299,8 @@ public class PlayerMovement : MonoBehaviour
         yRotationObstacle += aimInput.x * aimSensitivity * Time.deltaTime;
         currentObstacle.transform.localRotation = Quaternion.Euler(0.0f, yRotationObstacle, 0.0f);
 
+        if (currentObstacleRb == null) { return; }
+
         currentObstacleRb.AddForce(moveSpeedOfObstacle * new Vector3(movementInput.x, 0.0f, movementInput.y), ForceMode.Force);
     }
 
@@ -261,11 +308,15 @@ public class PlayerMovement : MonoBehaviour
     {
         if (!HoldingObstacle()) { return; }
 
-        currentIObstacle.Place();
-        currentIObstacle = null;
+        if (currentIObstacle != null)
+        {
+            currentIObstacle.Place();
+            currentIObstacle = null;
+        }
+
         currentObstacleRb.useGravity = true;
         currentObstacleRb.constraints = RigidbodyConstraints.FreezePositionX | RigidbodyConstraints.FreezePositionZ | RigidbodyConstraints.FreezeRotation;
-        currentObstacle.GetComponent<Collider>().enabled = true;
+        //currentObstacle.GetComponent<Collider>().enabled = true;
 
         currentObstacleRb = null;
         currentObstacle = null;

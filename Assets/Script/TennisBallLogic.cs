@@ -13,17 +13,33 @@ public class TennisBallLogic : MonoBehaviour
     private bool canScore = true;
     private Vector3 target;
 
+    private Vector3 startPosition = Vector3.zero;
     private PlayerMovement player;
+
+    private bool isIdle = true;
 
     public void SetTarget(Vector3 futurePosition, PlayerMovement player)
     {
-        target = futurePosition - transform.position;
+        isIdle = false;
+
+        if (player != null)
+        {
+            this.player = player;
+            target = futurePosition - transform.position;
+            rb.velocity = Vector3.zero;
+            rb.AddForce(target.normalized * moveSpeed, ForceMode.Impulse);
+        }
+        else
+        {
+            target = futurePosition;
+        }
+
         target.y = 0.0f;
-        this.player = player;
     }
 
     private void Start()
     {
+        startPosition = transform.position;
         tableCenter = FindObjectOfType<TableCenterIdentifier>().transform;
         target = transform.position;
         rb = GetComponent<Rigidbody>();
@@ -40,14 +56,17 @@ public class TennisBallLogic : MonoBehaviour
         player = null;
     }
 
+    public void ResetBall()
+    {
+        rb.velocity = Vector3.zero;
+        isIdle = true;
+        player = null;
+        transform.position = startPosition;
+    }
+
     private void Update()
     {
-        if (Vector3.Distance(transform.position, tableCenter.position) >= 15.0f)
-        {
-            Vector3 direction = tableCenter.position - transform.position;
-            direction.y = 0.0f;
-            transform.Translate(direction.normalized * 0.01f);
-        }
+        if (isIdle) { return; }
 
         if (Vector3.Distance(transform.position, tableCenter.position) > distanceFromTableCenterForPoint && canScore)
         {

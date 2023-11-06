@@ -8,24 +8,24 @@ public class FanLogic : MonoBehaviour, IObstacle
 
     public void BeingHeld()
     {
-        mainCollider.enabled = false;
+        //mainCollider.enabled = false;
     }
 
     public void Place()
     {
-        mainCollider.enabled = true;
+        //mainCollider.enabled = true;
     }
 
-    private void OnTriggerStay(Collider other)
+    private void OnTriggerEnter(Collider other)
     {
         if (other.gameObject.layer == tennisBallLayer)
         {
-            if (other.gameObject.TryGetComponent(out Rigidbody rb))
+            if (other.gameObject.TryGetComponent(out TennisBallLogic tennisBall))
             {
                 Vector3 direction = transform.forward;
                 direction.y = 0.0f;
 
-                rb.AddForce(pushMagnitude * -direction.normalized, ForceMode.Force);
+                tennisBall.SetTarget(-direction, null);
             }
         }
     }

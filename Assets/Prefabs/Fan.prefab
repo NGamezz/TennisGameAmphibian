@@ -148,7 +148,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   tennisBallLayer: 6
-  pushMagnitude: 50
+  pushMagnitude: 10
   mainCollider: {fileID: 7461348690105580722}
 --- !u!1 &7841747514374099383
 GameObject:
